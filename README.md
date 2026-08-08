@@ -12,7 +12,7 @@ Check out a quick demo of OpenNapkinAI in action:
 ## ✨ Features
 
 - **Text-to-Visual Generation**: Convert your written ideas into visual diagrams and sketches
-- **Multiple AI Models**: Support for both Ollama (local) and Anthropic models
+- **Multiple AI Models**: Support for Ollama with `gemma4:cloud` recommended, plus Anthropic models
 - **Rich Text Editor**: Powered by EditorJS for seamless content creation
 - **Hand-drawn Style**: Beautiful sketchy visuals using RoughJS
 - **Fast & Responsive**: Built with modern web technologies
@@ -57,23 +57,38 @@ The application will be available at `http://localhost:3000`
 - **AI Integration**: Vercel AI SDK
 - **Text Editor**: EditorJS
 - **Graphics**: RoughJS for hand-drawn style visuals
-- **AI Models**: Ollama (local) & Anthropic Claude
+- **AI Models**: Ollama (`gemma4:cloud` recommended) & Anthropic Claude
 
 ## ⚙️ Configuration
 
 ### AI Models Setup
 
-The AI integration is handled in `opennapkinai/apps/backend/src/routes/ai.ts`. You can configure:
+The AI integration is handled in `apps/backend/src/routes/ai.ts`.
 
-#### Ollama (Local)
+#### Recommended Ollama Model
+
+This project uses `gemma4:cloud` as the default and recommended Ollama model. It is the best choice for this codebase's structured output workflows, including:
+
+- Bullet point extraction
+- SmartArt structure generation
+- JSON schema-constrained responses with the Vercel AI SDK
+
+#### Why `gemma4:cloud`
+
+- Strong structured output performance for JSON generation
+- Better instruction-following for schema-based responses
+- Good fit for `generateObject` workflows
+- Works well through Ollama's OpenAI-compatible `/v1` endpoint
+
+#### Ollama Setup
 1. Install Ollama on your system
-2. Pull your desired model (e.g., `ollama pull gemma3:latest`)
-3. Configure the model in the AI route
+2. Ensure Ollama is running and accessible via `OLLAMA_HOST`
+3. Use `gemma4:cloud` in `apps/backend/src/routes/ai.ts`
 
 #### Anthropic
 1. Get your API key from Anthropic
 2. Set the `ANTHROPIC_API_KEY` environment variable
-3. Configure the model settings in the AI route
+3. Configure the model settings in the AI route if you want to switch providers
 
 ### Environment Variables
 
@@ -83,9 +98,9 @@ Create a `.env` file in the root directory:
 # Anthropic API Key (if using Anthropic models)
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
-# Ollama Configuration (if using local models)
+# Ollama Configuration
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=llama2
+OLLAMA_MODEL=gemma4:cloud
 
 # Other configurations
 PORT=3000

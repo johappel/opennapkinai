@@ -1,24 +1,26 @@
-import { ForwardRefExoticComponent, ReactNode, RefAttributes, useEffect, useState } from "react";
+import { ForwardRefExoticComponent, ReactNode, RefAttributes, useEffect, useRef, useState } from "react";
 import type { DiagramData } from "../tools/DiagramInlineTool";
-import DiagramContainer from "./DiagramContainer";
-import DiagramRenderer from "./DiagramRenderer";
-import { BulletPointsResponseSchema } from "../schema";
 import { experimental_useObject } from "@ai-sdk/react";
+import SmartArtCanvas from "../smartart/SmartArtCanvas";
+import { parseCompleteSmartArtStructure, SmartArtStructureSchema } from "../smartart/schema";
+import { downloadSmartArtAsSvg, downloadSmartArtAsPng } from "../smartart/download";
 import COLORS from "../data/colors";
-import { ChevronDown, Grid, LucideProps, Palette, Settings } from "lucide-react";
+import { ChevronDown, Download, Image as ImageIcon, LucideProps, Palette, Settings } from "lucide-react";
 
 
 
 export default function DiagramList({ data }: { data: DiagramData }) {
-    const [diagramId, setDiagramId] = useState('stacked');
     const [selectedColor, setSelectedColor] = useState<keyof typeof COLORS>('default');
     const [isRough, setIsRough] = useState(false);
     const [roughStyle, setRoughStyle] = useState<('hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed')>('hachure');
+    const svgRef = useRef<SVGSVGElement | null>(null);
 
     const { object, submit } = experimental_useObject({
-        api: 'http://localhost:3001/api/ai/structured',
-        schema: BulletPointsResponseSchema
+        api: 'http://localhost:3001/api/ai/smartart',
+        schema: SmartArtStructureSchema,
     });
+
+    const structure = parseCompleteSmartArtStructure(object);
 
     useEffect(() => {
         if (data) {
@@ -66,23 +68,6 @@ export default function DiagramList({ data }: { data: DiagramData }) {
                     </div>
 
                     <div className="flex items-center space-x-4 mb-6">
-                        <SelectWrapper icon={Grid} label="Diagram Type">
-                            <select
-                                value={diagramId}
-                                onChange={(e) => setDiagramId(e.target.value)}
-                                className="w-full bg-transparent outline-none text-sm font-medium text-slate-700 cursor-pointer pr-6 appearance-none"
-                            >
-                                <option value="stacked">Stacked</option>
-                                <option value="arrow">Arrow</option>
-                                <option value="diamond">Diamond</option>
-                                <option value="puzzle">Puzzle</option>
-                                <option value="radial">Radial</option>
-                                <option value="pinwheel">Pinwheel</option>
-                                <option value="eight">Eight</option>
-                                <option value="pyramid">Pyramid</option>
-                            </select>
-                        </SelectWrapper>
-
                         <SelectWrapper icon={Palette} label="Color Theme">
                             <select
                                 value={selectedColor}
@@ -131,11 +116,41 @@ export default function DiagramList({ data }: { data: DiagramData }) {
                         </SelectWrapper>
                     </div>
 
+                    {/* Download buttons */}
+                    {structure && (
+                        <div className="flex gap-2 mb-4">
+                            <button
+                                type="button"
+                                onClick={() => svgRef.current && downloadSmartArtAsSvg(svgRef.current, "smartart.svg")}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition-colors"
+                            >
+                                <Download className="w-4 h-4" />
+                                SVG
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => svgRef.current && downloadSmartArtAsPng(svgRef.current, "smartart.png")}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700 text-white text-sm font-medium hover:bg-slate-800 transition-colors"
+                            >
+                                <ImageIcon className="w-4 h-4" />
+                                PNG
+                            </button>
+                        </div>
+                    )}
+
                     {/* Preview Section */}
-                    <div className="border-t border-slate-200 pt-6">
-                        {object && object.bulletPoints && <DiagramContainer theme={selectedColor} bulletPoints={object.bulletPoints.map(point => ({ title: point?.title || "", content: point?.content || "" }))}>
-                            <DiagramRenderer diagramId={diagramId} isRough={isRough} width={500} theme={selectedColor} roughStyle={roughStyle} />
-                        </DiagramContainer>}
+                    <div className="border-t border-slate-200 pt-6 min-h-[400px] flex items-center justify-center">
+                        {structure ? (
+                            <SmartArtCanvas
+                                ref={svgRef}
+                                structure={structure}
+                                theme={selectedColor}
+                                isRough={isRough}
+                                roughStyle={roughStyle}
+                            />
+                        ) : (
+                            <span className="text-sm text-slate-400">Generating diagram...</span>
+                        )}
                     </div>
                 </div>
             </div>
