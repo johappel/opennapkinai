@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Umgebungsvariablen mit Geheimnissen (API-Keys). Niemals committen.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -25,4 +30,7 @@ dist-ssr
 
 .temp
 
-.turbo/*
+apps/frontend/.vite-test-cache/deps/*
+.turbo/cache/*
+.turbo/cookies/*
+.turbo/daemon/*

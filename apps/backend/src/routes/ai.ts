@@ -229,18 +229,94 @@ const ollama = createOpenAI({
   apiKey: "ollama"
 });
 
+/**
+ * B.AI exposes an OpenAI-compatible API, so the same client factory works.
+ * The 403 on the bare host documents the allowed paths:
+ * /v1/chat/completions, /v1/messages, /v1/responses, /v1/models, /v1/images/*.
+ *
+ * Important: calling `bai(id)` resolves to the Responses API (/v1/responses),
+ * which B.AI does not serve for every model. It answers with
+ * "model X is not supported on /v1/responses; use /v1/chat/completions instead".
+ * So use the explicit `bai.chat(id)` everywhere.
+ *
+ * Note: not every model behind this endpoint honours OpenAI-style structured
+ * output equally well. If generateObject starts failing with schema errors,
+ * suspect the model's schema fidelity before suspecting the request shape.
+ */
+const bai = createOpenAI({
+  baseURL: "https://api.b.ai/v1",
+  apiKey: process.env.BAI_API_KEY ?? ""
+});
+
+/** Central place for the model choice. Switch here, not at the call sites. */
+const BAI_MODEL = process.env.BAI_MODEL ?? "qwen3.8-flash";
+
+/** Always go through /v1/chat/completions, never through /v1/responses. */
+const baiChat = (modelId: string = BAI_MODEL) => bai.chat(modelId);
+
+/** Warns once at request time instead of crashing the process at import time. */
+function assertBaiKey(): void {
+    if (!process.env.BAI_API_KEY) {
+        throw new Error(
+            "BAI_API_KEY is not set. Add it to .env in the repository root (see .env.example)."
+        );
+    }
+}
+
+/**
+ * Keeps configuration mistakes out of the generic "Failed to generate" response.
+ * A missing key or an unreachable endpoint should be readable in the server log,
+ * not hidden behind the same message as a model that returned bad JSON.
+ */
+function describeProviderError(error: unknown): string {
+    if (error instanceof Error) {
+        if (error.message.includes("BAI_API_KEY")) return error.message;
+
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 401 || status === 403) {
+            return `B.AI rejected the credentials (HTTP ${status}). Check BAI_API_KEY.`;
+        }
+        if (status === 404) {
+            return `B.AI returned 404. Check the model id "${BAI_MODEL}" and the base URL.`;
+        }
+        if (status === 429) {
+            return "B.AI rate limit or quota reached (HTTP 429).";
+        }
+        if (error.message.includes("fetch failed") || error.message.includes("ENOTFOUND")) {
+            return "Could not reach api.b.ai. Check the network or the endpoint URL.";
+        }
+        return error.message;
+    }
+    return String(error);
+}
+
 router.post("/structured", async (req, res) => {
     const { context } = await req.body;
     console.log("Received context:", context);
 
-    const { object } = await generateObject({
-        model: ollama("gemma4:cloud"),
-        // model: anthropic('claude-3-haiku-20240307'),
-        system: SYSTEM_PROMPT,
-        prompt: `Generate bullet points from the following context: ${context}`,
-        schema: BulletPointsResponseSchema
-    });
-    return res.json(object);
+    try {
+        assertBaiKey();
+
+        const { object } = await generateObject({
+            model: baiChat(),
+            // Fallback auf den lokalen Pfad:
+            // model: ollama("gemma4:cloud"),
+            // model: anthropic('claude-3-haiku-20240307'),
+            system: SYSTEM_PROMPT,
+            prompt: `Generate bullet points from the following context: ${context}`,
+            schema: BulletPointsResponseSchema
+        });
+        return res.json(object);
+    } catch (error) {
+        // Without this block the error bypasses the route and the global handler
+        // answers with a generic message, hiding the actual cause.
+        const reason = describeProviderError(error);
+        console.error("Error generating bullet points:", reason);
+        return res.status(500).json({
+            error: "Failed to generate bullet points",
+            reason
+        });
+    }
 })
 
 /**
@@ -289,12 +365,15 @@ function normalizeSmartArtStructure(structure: SmartArtStructure): SmartArtStruc
  * Retrying is cheap and resolves most of these transient failures.
  */
 async function generateSmartArtStructure(context: string, attempts = 2): Promise<SmartArtStructure> {
+    assertBaiKey();
     let lastError: unknown;
     for (let attempt = 0; attempt < attempts; attempt++) {
         try {
             console.log(`Generating SmartArt structure (attempt ${attempt + 1}/${attempts}) for context:`, context);
             const { object } = await generateObject({
-                model: ollama("gemma4:cloud"),
+                model: baiChat(),
+                // Fallback auf den lokalen Pfad, falls B.AI nicht erreichbar ist:
+                // model: ollama("gemma4:cloud"),
                 system: SMARTART_SYSTEM_PROMPT,
                 prompt: `Generate a SmartArt structure for the following text:\n\n${context}`,
                 schema: SmartArtStructureSchema
@@ -303,7 +382,7 @@ async function generateSmartArtStructure(context: string, attempts = 2): Promise
             return object;
         } catch (error) {
             lastError = error;
-            console.warn(`SmartArt generation attempt ${attempt + 1}/${attempts} failed:`, error instanceof Error ? error.message : error);
+            console.warn(`SmartArt generation attempt ${attempt + 1}/${attempts} failed:`, describeProviderError(error));
         }
     }
     throw lastError;
@@ -321,8 +400,14 @@ router.post("/smartart", async (req, res) => {
 
         return res.json(normalizeSmartArtStructure(object));
     } catch (error) {
-        console.error("Error generating SmartArt structure:", error);
-        return res.status(500).json({ error: "Failed to generate SmartArt structure" });
+        const reason = describeProviderError(error);
+        console.error("Error generating SmartArt structure:", reason);
+        // The detail stays in the log. The client gets the reason too, because a
+        // misconfigured key is actionable for whoever runs this locally.
+        return res.status(500).json({
+            error: "Failed to generate SmartArt structure",
+            reason
+        });
     }
 });
 
