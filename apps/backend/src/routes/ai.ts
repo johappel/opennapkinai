@@ -173,7 +173,10 @@ Return your response as valid JSON in the following structure:
 - Focus on the most impactful and important information from the paragraph`
 
 const anthropic = createAnthropic({
-  apiKey: ""
+  // Leer, weil hier kein Schluessel hinterlegt ist. Als Alternative vorgesehen,
+  // aber derzeit nicht benutzt: der Aufruf steht als Kommentar unter dem
+  // aktiven Aufruf. Wer umschaltet, muss einen Schluessel setzen.
+  apiKey: process.env.ANTHROPIC_API_KEY ?? ""
 });
 
 /**
@@ -182,6 +185,9 @@ const anthropic = createAnthropic({
  * (":cloud" suffix) don't always return, causing spurious AI_TypeValidationError failures even
  * when the model responded successfully. Using Ollama's OpenAI-compatible /v1 endpoint instead
  * avoids that broken response validation.
+ *
+ * Deshalb steht hier createOpenAI und nicht das Paket ollama-ai-provider. Letzteres ist
+ * damit unbenutzt, siehe package.json des Backends.
  */
 const ollama = createOpenAI({
   baseURL: `${process.env.OLLAMA_HOST ?? "http://localhost:11434"}/v1`,
@@ -249,13 +255,36 @@ function describeProviderError(error: unknown): string {
     return String(error);
 }
 
+/**
+ * TS2589 an den beiden generateObject-Aufrufen, erklaert und bewusst gesetzt.
+ *
+ * Die Meldung "Type instantiation is excessively deep and possibly infinite"
+ * kommt aus der Typverschachtelung von generateObject selbst, nicht aus
+ * unseren Schemas. Nachgeprueft mit dem kleinstmoeglichen Fall
+ * (`schema: z.object({ a: z.string() })`): die Meldung bleibt. Ein Upgrade des
+ * Compilers hilft nicht, TypeScript 5.9.3 meldet dasselbe. Eine Einengung des
+ * Modell- oder Schematyps verschiebt den Fehler nur an eine andere Stelle.
+ *
+ * Die Alternative waere, den Aufruf ueber `as` umzubiegen. Dann waere der
+ * Fehler auch weg, aber stiller entstanden als hier. Zwei dauerhaft rote
+ * Zeilen in `tsc --noEmit` sind die schlechteste Loesung, weil sie dazu
+ * erziehen, die Ausgabe zu ignorieren. Deshalb steht die Unterdrueckung mit
+ * Begruendung an der Stelle und nicht in der tsconfig.
+ *
+ * Wenn `ai` oder `@ai-sdk/openai` auf eine Fassung wandern, in der die
+ * Verschachtelung flacher ist, verschwindet TS2589 und `@ts-expect-error`
+ * schlaegt selbst fehl: TS2578, "unused '@ts-expect-error' directive". Das ist
+ * die gewuenschte Erinnerung, die Zeile dann zu entfernen.
+ */
+
 router.post("/structured", async (req, res) => {
-    const { context } = await req.body;
+    const { context } = req.body;
     console.log("Received context:", context);
 
     try {
         assertBaiKey();
 
+        // @ts-expect-error TS2589 aus der Typverschachtelung von generateObject, siehe oben.
         const { object } = await generateObject({
             model: baiChat(),
             // Fallback auf den lokalen Pfad:
@@ -317,6 +346,7 @@ async function generateSmartArtStructure(context: string, attempts = 2): Promise
     for (let attempt = 0; attempt < attempts; attempt++) {
         try {
             console.log(`Generating SmartArt nodes (attempt ${attempt + 1}/${attempts}) for context:`, context);
+            // @ts-expect-error TS2589 aus der Typverschachtelung von generateObject, siehe oben.
             const { object } = await generateObject({
                 model: baiChat(),
                 // Fallback auf den lokalen Pfad, falls B.AI nicht erreichbar ist:

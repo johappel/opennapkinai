@@ -40,3 +40,10 @@ dist-ssr
 
 # Turbo-Laufzeitverzeichnis (Cache, Cookies, Daemon-Log).
 .turbo/
+
+# Im Monorepo gibt es genau ein Lockfile, im Wurzelverzeichnis. Lockfiles in
+# den Apps stammen aus einer Zeit, in der die Apps eigene npm-Projekte waren,
+# und wuerden eine zweite, abweichende Wahrheit ueber die Abhaengigkeiten
+# behaupten. Ausserhalb des Wurzelverzeichnisses deshalb ignoriert.
+apps/*/package-lock.json
+packages/*/package-lock.json

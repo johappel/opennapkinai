@@ -4,10 +4,11 @@
     "build": "turbo run build --filter=@repo/types",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
     "format": "prettier --write \"**/*.ts,tsx,md\"",
     "check:fit": "node --import tsx scripts/audit-layout-fit.mjs",
     "check:data": "node --import tsx scripts/check-diagram-data.mjs",
-    "check": "npm run check:fit && npm run check:data"
+    "check": "npm run type-check && npm run check:fit && npm run check:data"
   },
   "devDependencies": {
     "eslint": "^9.31.0",

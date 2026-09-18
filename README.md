@@ -126,14 +126,28 @@ mehr gelesen.
 npm run check
 ```
 
-Zwei Prüfläufe, beide ohne Browser und ohne Netz:
+Drei Prüfläufe, alle ohne Browser und ohne Netz:
 
+- `type-check` typisiert Backend und Frontend über turbo. Beide sind sauber.
 - `check:fit` prüft für 1 bis 12 Knoten, flach und als Kette, ob jede
   angebotene Form zeichenbar ist und ob zwei angebotene Formen dieselbe
   Geometrie liefern. Der zweite Punkt ist der wichtigere: gleiche Geometrie
   hiesse, eine der beiden ist reine Verzierung.
 - `check:data` prüft, dass der Quelltext eines Diagrammblocks die Quellblöcke
   überlebt und dass verschobene Blöcke nicht als Verlust gelesen werden.
+
+Einzeln laufen die beiden Datenschritte über `npm run check:fit` und
+`npm run check:data`.
+
+### Zwei Typfehler sind bewusst unterdrückt
+
+`apps/backend/src/routes/ai.ts` trägt an den beiden `generateObject`-Aufrufen
+je ein `@ts-expect-error` mit Begründung. Die Meldung TS2589 kommt aus der
+Typverschachtelung der `ai`-SDK selbst, nicht aus den Schemas, und lässt sich
+mit dem kleinstmöglichen Schema reproduzieren. Weder ein neuerer Compiler noch
+eine eingeengte Typangabe hilft. Die Unterdrückung steht an der Stelle statt in
+der `tsconfig`, weil ein `@ts-expect-error` selbst fehlschlägt, sobald der
+Fehler verschwindet. So bleibt die Zeile eine Erinnerung statt einer Tapete.
 
 ## Umgebung
 

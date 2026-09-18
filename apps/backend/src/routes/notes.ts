@@ -4,6 +4,17 @@ import { Note } from '@repo/types/dist/note';
 
 const router = Router();
 
+/**
+ * Express 5 typisiert `req.params`-Werte als `string | string[]`, weil ein Pfad
+ * denselben Namen mehrfach binden kann. Hier bindet jeder Pfad seinen Namen
+ * genau einmal, also ist es immer eine Zeichenkette. Statt an jeder Stelle zu
+ * casten steht die Einengung einmal hier.
+ */
+const readPathParam = (value: string | string[] | undefined): string | null => {
+  if (typeof value === 'string' && value.length > 0) return value;
+  return null;
+};
+
 router.get('/', (req: Request, res: Response) => {
   try {
     const notes = getAllNotes();
@@ -24,7 +35,7 @@ router.get('/', (req: Request, res: Response) => {
 
 router.get('/:id', (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = readPathParam(req.params.id);
 
     if (!id) {
       return res.status(400).json({
@@ -83,7 +94,7 @@ router.post('/', (req: Request, res: Response) => {
 
 router.delete('/:id', (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = readPathParam(req.params.id);
 
     if (!id) {
       return res.status(400).json({
@@ -116,7 +127,7 @@ router.delete('/:id', (req: Request, res: Response) => {
 
 router.put('/:id', (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = readPathParam(req.params.id);
     const updatedNote: Partial<Note> = req.body;
 
     if (!id) {

@@ -6,6 +6,10 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
     "lint": {},
     "dev": {
       "cache": false,
