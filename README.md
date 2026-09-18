@@ -1,162 +1,103 @@
-# OpenNapkinAI 🎨
+# OpenNapkinAI
 
-An open-source alternative to Napkin AI that transforms your text into compelling visuals. Share your ideas quickly and effectively with automatically generated diagrams, sketches, and visual representations.
+Ein offener Nachbau von Napkin AI. Aus geschriebenem Text wird ein Diagramm,
+das den Inhalt zeigt statt ihn zu schmücken.
 
-## 📹 Demo Video
+Der Ablauf ist dreistufig, wie beim Vorbild: Text hinein, dann eine Reihe
+gerenderter Vorschläge, dann Auswahl und Feinschliff. Die Vorschläge sind
+inhaltlich begründet, nicht kosmetisch: Eine Variante ist nur dann im Angebot,
+wenn sie zu der Struktur passt, die der Text tatsächlich hergibt.
 
-Check out a quick demo of OpenNapkinAI in action:
+## Schnellstart
 
-[![Watch the video](https://img.youtube.com/vi/LYRLmw00Zyc/maxresdefault.jpg)](https://youtu.be/LYRLmw00Zyc)
+Voraussetzungen: Node.js 18 oder neuer, npm.
 
-
-## ✨ Features
-
-- **Text-to-Visual Generation**: Convert your written ideas into visual diagrams and sketches
-- **Multiple AI Models**: Support for Ollama with `gemma4:cloud` recommended, plus Anthropic models
-- **Rich Text Editor**: Powered by EditorJS for seamless content creation
-- **Hand-drawn Style**: Beautiful sketchy visuals using RoughJS
-- **Fast & Responsive**: Built with modern web technologies
-- **Open Source**: Completely free and customizable
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js (v18 or higher)
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/genaiwithshubham/opennapkinai.git
-cd opennapkinai
-```
-
-2. Install dependencies:
 ```bash
 npm install
-```
-
-3. Build the project:
-```bash
-npm run build
-```
-
-4. Start the development server:
-```bash
 npm run dev
 ```
 
-The application will be available at `http://localhost:3000`
+Frontend auf `http://localhost:5173`, Backend auf `http://localhost:3001`.
+Vite weicht auf 5174 aus, wenn 5173 belegt ist.
 
-## 🛠️ Tech Stack
-
-- **Frontend**: React, Tailwind CSS
-- **Backend**: Express.js
-- **AI Integration**: Vercel AI SDK
-- **Text Editor**: EditorJS
-- **Graphics**: RoughJS for hand-drawn style visuals
-- **AI Models**: Ollama (`gemma4:cloud` recommended) & Anthropic Claude
-
-## ⚙️ Configuration
-
-### AI Models Setup
-
-The AI integration is handled in `apps/backend/src/routes/ai.ts`.
-
-#### Recommended Ollama Model
-
-This project uses `gemma4:cloud` as the default and recommended Ollama model. It is the best choice for this codebase's structured output workflows, including:
-
-- Bullet point extraction
-- SmartArt structure generation
-- JSON schema-constrained responses with the Vercel AI SDK
-
-#### Why `gemma4:cloud`
-
-- Strong structured output performance for JSON generation
-- Better instruction-following for schema-based responses
-- Good fit for `generateObject` workflows
-- Works well through Ollama's OpenAI-compatible `/v1` endpoint
-
-#### Ollama Setup
-1. Install Ollama on your system
-2. Ensure Ollama is running and accessible via `OLLAMA_HOST`
-3. Use `gemma4:cloud` in `apps/backend/src/routes/ai.ts`
-
-#### Anthropic
-1. Get your API key from Anthropic
-2. Set the `ANTHROPIC_API_KEY` environment variable
-3. Configure the model settings in the AI route if you want to switch providers
-
-### Environment Variables
-
-Create a `.env` file in the root directory:
+Einen Schlüssel hinterlegen: `.env` im Repo-Root anlegen, Vorlage ist
+`.env.example`.
 
 ```env
-# Anthropic API Key (if using Anthropic models)
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-
-# Ollama Configuration
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=gemma4:cloud
-
-# Other configurations
-PORT=3000
-NODE_ENV=development
+BAI_API_KEY=...
 ```
 
-## 📁 Project Structure
+Ohne Schlüssel startet das Backend trotzdem und antwortet mit einer lesbaren
+Meldung statt mit einem generischen Fehler.
+
+## Aufbau
 
 ```
 opennapkinai/
 ├── apps/
-│   ├── frontend/          # React frontend application
-│   └── backend/           # Express.js backend
-│       └── src/
-│           └── routes/
-│               └── ai.ts  # AI model integration
-├── packages/              # Shared packages
-├── docs/                 # Documentation
-├── README.md
-└── package.json
+│   ├── backend/          Express, AI-Endpunkte
+│   └── frontend/         Vite, React 19, Tailwind 4
+├── packages/
+│   ├── types/            gemeinsame Typen
+│   ├── eslint-config/
+│   └── typescript-config/
+├── scripts/              Einmalwerkzeuge, nicht Teil des Builds
+└── package.json          npm workspaces, turbo
 ```
 
-## 🎯 How It Works
+Die Workspaces heissen `backend` und `frontend`. Das Root-Paket heisst
+`opennapkinai`.
 
-1. **Input**: Write your text or ideas in the rich text editor
-2. **Processing**: AI models analyze your content and determine the best visual representation
-3. **Generation**: RoughJS creates hand-drawn style diagrams and sketches
-4. **Output**: Beautiful, shareable visuals that communicate your ideas effectively
+## AI-Anbindung
 
-## 🤝 Contributing
+Beide Endpunkte liegen in `apps/backend/src/routes/ai.ts`.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+| Endpunkt | Zweck | Schema |
+|---|---|---|
+| `POST /api/ai/structured` | Absatz in vier Stichpunkte | `BulletPointsResponseSchema` |
+| `POST /api/ai/smartart` | Text in Diagrammstruktur | `SmartArtStructureSchema` |
 
-## 📜 License
+Provider sind `createOpenAI`-Clients mit eigenem `baseURL`, benannt nach dem
+Anbieter:
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- `bai` auf `https://api.b.ai/v1`, Schlüssel aus `BAI_API_KEY`, Modell
+  `qwen3.8-flash` (über `BAI_MODEL` überschreibbar)
+- `ollama` auf `http://localhost:11434/v1`, für den lokalen Betrieb
+- `anthropic` vorhanden, aber ohne Schlüssel
 
-## 🙏 Acknowledgments
+Wichtig: B.AI bedient nur `/v1/chat/completions`, nicht `/v1/responses`. In
+der `ai`-SDK 7 löst der direkte Aufruf `bai(id)` auf den Responses-Pfad auf,
+deshalb geht jeder Aufruf über die Hilfsfunktion `baiChat()`, also
+`bai.chat(id)`.
 
-- Inspired by Napkin AI
-- Built with amazing open-source technologies
-- Thanks to all contributors and the open-source community
+Das Frontend liest die Diagrammstruktur mit `experimental_useObject` aus
+`@ai-sdk/react`. Der Endpunkt antwortet mit `res.json()`, also JSON und nicht
+als Datenstrom. `useObject` liest den Body als Klartext und parst
+inkrementell, das passt zusammen. Wer auf `streamText` umstellt, muss das
+Frontend mitziehen.
 
-## 🗺️ Roadmap
+## Diagramme
 
-- [ ] Additional AI model support
-- [ ] Export to various formats (SVG, PNG, PDF)
-- [ ] Collaborative editing
-- [ ] Template library
-- [ ] Mobile app
-- [ ] API for third-party integrations
+Das Rendern läuft im Browser, ohne Modellaufruf.
 
----
+- `apps/frontend/src/smartart/layout/` rechnet für jeden Archetyp ein Layout:
+  `process`, `cycle`, `hierarchy`, `pyramid`, `matrix`, `comparison`
+- `computeLayout(archetype, nodes)` wählt das Verfahren
+- `archetypeFit` entscheidet, welche Archetypen zu einer Knotenmenge passen.
+  Hierarchie braucht genau eine Wurzel, Vergleich eine gerade Knotenzahl,
+  Pyramide höchstens fünf, Matrix mindestens vier
+- `SmartArtCanvas` zeichnet das Ergebnis als SVG, optional im Skizzenstil
+  über roughjs
+- Export als SVG oder PNG über `smartart/download.ts`
 
-Made with ❤️ by the `genaiwithshubh` community
+Darstellungsparameter wie Farbschema und Skizzenstil sind reine Anzeige. Sie
+ändern nie die Struktur, das ist eine bewusste Trennung.
+
+## Umgebung
+
+Die `.env` liegt im Repo-Root, nicht in den Apps. Die Backend-Skripte laden
+sie über `--env-file-if-exists=../../.env`.
+
+## Lizenz
+
+MIT, siehe `LICENSE`.

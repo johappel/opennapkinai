@@ -21,7 +21,7 @@ export class DiagramBlockTool {
   */
 
   constructor({ data }: { data: DiagramData; api: API }) {
-    this.data = data || {};
+    this.data = data || ({} as DiagramData);
     // this.api = api;
   }
 
@@ -40,8 +40,13 @@ export class DiagramBlockTool {
     this.reactRoot.render(
       createElement(DiagramList, {
         data: this.data,
+        // The React tree owns what it renders but not the block data, so changes
+        // are handed back up here. Without this the chosen shape and the theme
+        // would be lost the moment the note is saved.
+        onDataChange: (patch) => {
+          this.data = { ...this.data, ...patch };
+        },
       })
-
     );
   }
 
@@ -51,7 +56,9 @@ export class DiagramBlockTool {
 
   destroy(): void {
     if (this.reactRoot) {
-      // this.reactRoot.unmount();
+      // Without unmounting, every removed diagram block leaves its React tree
+      // running. With the chooser that is six tiles per block.
+      this.reactRoot.unmount();
       this.reactRoot = null;
     }
   }

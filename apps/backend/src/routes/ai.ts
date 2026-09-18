@@ -1,9 +1,11 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 
-import { generateObject, streamText } from 'ai';
+import { generateObject } from 'ai';
 import { Router } from 'express';
 import { z } from 'zod';
+
+import { SMARTART_NODES_SYSTEM_PROMPT } from '../prompt.js';
 
 export const BulletPointSchema = z.object({
     title: z.string()
@@ -39,26 +41,25 @@ export const SmartArtNodeSchema = z.object({
         .nullable()
         .optional()
         .describe(
-            "Only set for the 'hierarchy' archetype: id of this node's parent, or null for the single root node. Omit for every other archetype."
+            "Only if the text describes containment or reporting lines: the id of this node's parent, with exactly one node set to null as the root. Otherwise omit it."
         )
 });
 
-export const SmartArtArchetypeSchema = z.enum([
-    "process",
-    "cycle",
-    "hierarchy",
-    "pyramid",
-    "matrix",
-    "comparison"
-]);
-
+/**
+ * No `archetype` field any more, and that is the point of this schema.
+ *
+ * Until 18.09.2026 the model picked the diagram shape itself, and a text can
+ * legitimately be drawn as a sequence, a cycle or a set of layers. Whoever
+ * reads the result could not tell whether the shape was the only sensible one
+ * or just the first the model happened to pick. So the response now carries
+ * only the ideas, and the shape is chosen in the UI from the archetypes the
+ * nodes actually support.
+ */
 export const SmartArtStructureSchema = z.object({
-    archetype: SmartArtArchetypeSchema
-        .describe("The diagram archetype that best fits the structure implied by the text"),
     nodes: z.array(SmartArtNodeSchema)
         .min(3, "Must contain at least 3 nodes")
         .max(9, "Must contain at most 9 nodes")
-        .describe("3 to 9 nodes capturing the key ideas from the text, in logical order")
+        .describe("3 to 9 nodes capturing the key ideas from the text, in the order the text implies")
 });
 
 export type SmartArtStructure = z.infer<typeof SmartArtStructureSchema>;
@@ -164,54 +165,12 @@ Return your response as valid JSON in the following structure:
   ]
 }
 
-
-### Example 3
-**Input Paragraph:**
-"The rise of remote work has fundamentally changed the modern workplace landscape, accelerated by the global pandemic but sustained by its numerous benefits. Companies report increased productivity, reduced overhead costs, and access to a global talent pool without geographical constraints. Employees enjoy better work-life balance, elimination of commute stress, and greater flexibility in managing personal responsibilities. However, remote work also presents challenges such as communication barriers, difficulty in team building, potential isolation, and the need for robust cybersecurity measures to protect company data."
-
-**Output:**
-**Pandemic-Accelerated Transformation:** Remote work fundamentally changed workplace landscapes with lasting benefits.
-**Company Advantages:** Increased productivity, reduced costs, and global talent access without location limits.
-**Employee Benefits:** Better work-life balance, no commute stress, and greater personal flexibility.
-**Operational Challenges:** Communication barriers, team building difficulties, and cybersecurity concerns.
-
-### Example 4
-**Input Paragraph:**
-"Sustainable agriculture practices are becoming increasingly important as the world faces the dual challenge of feeding a growing population while protecting environmental resources. Techniques such as crop rotation, integrated pest management, and precision farming help maintain soil health and reduce chemical inputs. Water conservation methods like drip irrigation and rainwater harvesting ensure efficient resource use in water-scarce regions. Furthermore, sustainable farming supports biodiversity by creating habitats for beneficial insects and wildlife while reducing the carbon footprint through methods like cover cropping and reduced tillage."
-
-**Output:**
-**Growing Population Challenge:** Sustainable agriculture must feed more people while protecting environmental resources.
-**Soil Health Techniques:** Crop rotation, pest management, and precision farming reduce chemical dependency.
-**Water Conservation Methods:** Drip irrigation and rainwater harvesting optimize resource use efficiently.
-**Biodiversity Support:** Sustainable practices create wildlife habitats and reduce carbon footprint.
-
 ## Key Guidelines
 - Always extract exactly four bullet points
 - Keep titles concise and descriptive (3-6 words)
 - Ensure content is clear and presentation-ready
 - Maintain logical flow and distinct separation between points
 - Focus on the most impactful and important information from the paragraph`
-
-
-const SMARTART_SYSTEM_PROMPT = `# System Prompt: Text to SmartArt Structure Generator
-
-## Role
-You are an expert information designer who converts free-form text into a structured diagram (a "SmartArt"), similar to PowerPoint SmartArt or napkin.ai. You decide BOTH the best diagram archetype AND how many nodes are needed - never force a fixed shape.
-
-## Archetypes
-- **process**: a linear sequence of steps/stages with a clear start and end (e.g. a workflow, a set of ordered phases). Use 3-6 nodes.
-- **cycle**: a repeating/circular process with no fixed end (e.g. a lifecycle, a feedback loop). Use 3-8 nodes.
-- **hierarchy**: a tree of parent-child relationships (e.g. an org chart, a taxonomy). Exactly one node is the root (parentId: null); every other node's parentId must reference an existing node's id. Use 3-9 nodes.
-- **pyramid**: a layered structure ordered by priority/foundation, from base to top (e.g. a maturity model, Maslow's hierarchy). Use 3-5 nodes, ordered from base (first) to top (last).
-- **matrix**: a grid of independent categories/quadrants with no inherent order (e.g. a 2x2 prioritization grid). Use 4 nodes ideally (or up to 9 for larger grids).
-- **comparison**: two or more contrasting options/approaches placed side by side (e.g. option A vs option B). Use an even number of nodes (4, 6, or 8), alternating sides in array order.
-
-## Rules
-1. Read the text and pick exactly ONE archetype that best matches its underlying structure.
-2. Generate between 3 and 9 nodes depending on how many distinct ideas the text actually contains - do not pad or force a specific count.
-3. Each node needs: a short unique "id" (e.g. "n1"), a concise "title" (2-5 words), and one sentence of "content".
-4. Only include "parentId" when the archetype is "hierarchy". Exactly one node must have parentId set to null (the root); every other node's parentId must reference another node's "id" in the same response.
-5. Preserve a logical order in the "nodes" array (step order for process, priority order for pyramid, alternating sides for comparison, etc.).`;
 
 const anthropic = createAnthropic({
   apiKey: ""
@@ -321,9 +280,10 @@ router.post("/structured", async (req, res) => {
 
 /**
  * Repairs common model mistakes so the response is always safe to render:
- * - de-duplicates node ids
- * - strips parentId for non-hierarchy archetypes
- * - guarantees exactly one hierarchy root and that every parentId resolves to a real node
+ * de-duplicates node ids, and clears parentId values that cannot be resolved,
+ * because `d3-hierarchy`'s `stratify` throws on a dangling parent.
+ *
+ * The archetype is not touched here: the response no longer carries one.
  */
 function normalizeSmartArtStructure(structure: SmartArtStructure): SmartArtStructure {
     const seenIds = new Set<string>();
@@ -336,28 +296,15 @@ function normalizeSmartArtStructure(structure: SmartArtStructure): SmartArtStruc
         return { ...node, id };
     });
 
-    if (structure.archetype !== "hierarchy") {
-        return {
-            archetype: structure.archetype,
-            nodes: nodes.map(({ parentId, ...rest }) => rest)
-        };
-    }
-
     const ids = new Set(nodes.map((node) => node.id));
-    const roots = nodes.filter((node) => node.parentId === null || node.parentId === undefined);
-    const rootId = roots[0]?.id ?? nodes[0]?.id;
-
-    const fixedNodes = nodes.map((node) => {
-        if (node.id === rootId) {
-            return { ...node, parentId: null };
-        }
-        if (node.parentId && node.parentId !== node.id && ids.has(node.parentId)) {
-            return node;
-        }
-        return { ...node, parentId: rootId };
+    const cleaned = nodes.map((node) => {
+        if (node.parentId === null || node.parentId === undefined) return node;
+        if (node.parentId !== node.id && ids.has(node.parentId)) return node;
+        const { parentId, ...rest } = node;
+        return rest;
     });
 
-    return { archetype: "hierarchy", nodes: fixedNodes };
+    return { nodes: cleaned };
 }
 
 /**
@@ -369,16 +316,16 @@ async function generateSmartArtStructure(context: string, attempts = 2): Promise
     let lastError: unknown;
     for (let attempt = 0; attempt < attempts; attempt++) {
         try {
-            console.log(`Generating SmartArt structure (attempt ${attempt + 1}/${attempts}) for context:`, context);
+            console.log(`Generating SmartArt nodes (attempt ${attempt + 1}/${attempts}) for context:`, context);
             const { object } = await generateObject({
                 model: baiChat(),
                 // Fallback auf den lokalen Pfad, falls B.AI nicht erreichbar ist:
                 // model: ollama("gemma4:cloud"),
-                system: SMARTART_SYSTEM_PROMPT,
-                prompt: `Generate a SmartArt structure for the following text:\n\n${context}`,
+                system: SMARTART_NODES_SYSTEM_PROMPT,
+                prompt: `Break the following text into diagram nodes:\n\n${context}`,
                 schema: SmartArtStructureSchema
             });
-            console.log("Generated SmartArt structure:", object);
+            console.log("Generated SmartArt nodes:", object);
             return object;
         } catch (error) {
             lastError = error;

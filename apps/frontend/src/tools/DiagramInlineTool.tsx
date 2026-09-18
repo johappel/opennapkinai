@@ -1,9 +1,23 @@
 import type { API } from "@editorjs/editorjs";
-
+import type { Archetype, SmartArtStructure } from "../smartart/types";
+import type { Presentation } from "../smartart/presentation";
 
 export type DiagramData = {
-  originalText: string;
-  sourceBlockIndex: number;
+    /** The text the diagram was built from. One block today, a range later. */
+    originalText: string;
+    sourceBlockIndex: number;
+    /**
+     * The ideas read out of the text. Persisted so reopening a note does not
+     * call the model again. Optional because blocks saved before 18.09.2026
+     * only carry `originalText`.
+     */
+    structure?: SmartArtStructure;
+    /** Top-level convenience copy of the current shape, for quick reads. */
+    archetype?: Archetype;
+    /** Display only: theme, sketch style. Never part of the structure. */
+    presentation?: Presentation;
+    /** Shapes the user already tried, so the chooser can mark them. */
+    rejectedArchetypes?: Archetype[];
 };
 
 export class DiagramInlineTool {

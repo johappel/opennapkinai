@@ -20,17 +20,23 @@ export const SmartArtArchetypeSchema = z.enum([
     "comparison",
 ]);
 
+/**
+ * The model returns nodes and nothing else. The archetype is not part of the
+ * response any more: the text does not have one single best shape, so letting
+ * the model pick one would mean hiding the choice from the user. The shape is
+ * picked in the UI, from the archetypes that `archetypeFit` allows for these
+ * nodes. See apps/frontend/src/smartart/archetypeFit.ts.
+ */
 export const SmartArtStructureSchema = z.object({
-    archetype: SmartArtArchetypeSchema,
-    nodes: z.array(SmartArtNodeSchema).min(1),
+    nodes: z.array(SmartArtNodeSchema).min(3),
 });
 
 export type GeneratedSmartArtStructure = z.infer<typeof SmartArtStructureSchema>;
 
 /**
  * Streaming responses are deeply partial (fields may be undefined mid-stream).
- * Returns a fully-typed structure only once every node has a non-empty id/title/content,
- * so the renderer never receives incomplete data.
+ * Returns a fully-typed node set only once every node has a non-empty id, title
+ * and content, so the renderer never receives incomplete data.
  */
 export function parseCompleteSmartArtStructure(value: unknown): GeneratedSmartArtStructure | null {
     const result = SmartArtStructureSchema.safeParse(value);

@@ -30,7 +30,13 @@ dist-ssr
 
 .temp
 
-apps/frontend/.vite-test-cache/deps/*
-.turbo/cache/*
-.turbo/cookies/*
-.turbo/daemon/*
+# Werkzeug- und Agenten-Arbeitsverzeichnisse. Lokaler Zustand, nicht Teil
+# des Projekts. Insbesondere die Projektnotizen unter memory/ nicht committen.
+.workbuddy-ai/
+.kilo/
+
+# Build-Artefakte der TypeScript-Projekte (inkrementeller Compiler-Zustand).
+*.tsbuildinfo
+
+# Turbo-Laufzeitverzeichnis (Cache, Cookies, Daemon-Log).
+.turbo/

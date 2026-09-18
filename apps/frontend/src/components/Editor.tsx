@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef } from "react";
-import EditorJS, { type API, type BlockMutationEvent, type OutputData } from "@editorjs/editorjs";
+import EditorJS, { type API, type OutputData } from "@editorjs/editorjs";
 import Paragraph from "@editorjs/paragraph";
 import Header from "@editorjs/header";
 import DiagramInlineTool from "../tools/DiagramInlineTool";
@@ -34,8 +34,7 @@ const Editor = ({ data, onChange, editorblock }: EditorProps) => {
                 //@ts-ignore
                 tools: EDITOR_JS_TOOLS,
                 data: data,
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                async onChange(api: API, event: BlockMutationEvent | BlockMutationEvent[]) {
+                async onChange(api: API) {
                     const data = await api.saver.save();
                     onChange(data);
                 },
