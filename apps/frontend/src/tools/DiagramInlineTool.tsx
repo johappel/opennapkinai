@@ -1,11 +1,26 @@
 import type { API } from "@editorjs/editorjs";
 import type { Archetype, SmartArtStructure } from "../smartart/types";
 import type { Presentation } from "../smartart/presentation";
+import { buildDiagramData } from "./diagramData";
 
 export type DiagramData = {
-    /** The text the diagram was built from. One block today, a range later. */
+    /**
+     * The text the diagram was built from. This is the block's own copy and the
+     * only source the diagram needs: the source blocks may be gone later.
+     */
     originalText: string;
-    sourceBlockIndex: number;
+    /**
+     * EditorJS block ids the text was taken from, in document order. Ids, not
+     * indices, because an index shifts as soon as a block above is inserted or
+     * removed, while the id keeps pointing at the same block. Empty for blocks
+     * saved before 18.09.2026.
+     */
+    sourceBlockIds?: string[];
+    /**
+     * Left over from the first version. Not read anywhere any more, kept so old
+     * saved notes keep their shape. See `buildDiagramData`.
+     */
+    sourceBlockIndex?: number;
     /**
      * The ideas read out of the text. Persisted so reopening a note does not
      * call the model again. Optional because blocks saved before 18.09.2026
@@ -75,14 +90,15 @@ export class DiagramInlineTool {
       return;
     }
 
-    this.insertDiagramBlock(blockText, currentBlockIndex);
+    this.insertDiagramBlock(blockText, currentBlockIndex, currentBlock.id);
   }
 
-  private insertDiagramBlock(blockText: string, currentBlockIndex: number): void {
-    const diagramData: DiagramData = {
-      originalText: blockText,
-      sourceBlockIndex: currentBlockIndex
-    };
+  private insertDiagramBlock(blockText: string, currentBlockIndex: number, blockId?: string): void {
+    const diagramData = buildDiagramData({
+      text: blockText,
+      sourceBlockIds: blockId ? [blockId] : [],
+      sourceBlockIndex: currentBlockIndex,
+    });
 
     // Insert new diagram block after current block
     try {

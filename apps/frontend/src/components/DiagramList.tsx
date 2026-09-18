@@ -8,6 +8,11 @@ type Props = {
     data: DiagramData;
     /** Hands edits back to the EditorJS block, which owns the persisted data. */
     onDataChange?: (patch: Partial<DiagramData>) => void;
+    /**
+     * Whether the blocks the text was taken from still exist. Read once when the
+     * block mounts; the block is redrawn by EditorJS when the document changes.
+     */
+    sourceState?: { kind: "keine" | "vorhanden" | "verwaist"; missing?: string[] };
 };
 
 /**
@@ -15,7 +20,7 @@ type Props = {
  * after a shape has been picked. What it does not own is the model call, which
  * lives in `useNodeExtraction` so both steps share one result.
  */
-export default function DiagramList({ data, onDataChange }: Props) {
+export default function DiagramList({ data, onDataChange, sourceState }: Props) {
     const [structure, setStructure] = useState<SmartArtStructure | null>(data.structure ?? null);
     const [isChooserOpen, setChooserOpen] = useState(!data.archetype);
 
@@ -44,6 +49,7 @@ export default function DiagramList({ data, onDataChange }: Props) {
                     originalText={data.originalText}
                     structure={structure}
                     presentation={data.presentation}
+                    sourceState={sourceState}
                     onStructure={handleStructure}
                     onPick={handlePick}
                 />
@@ -57,6 +63,7 @@ export default function DiagramList({ data, onDataChange }: Props) {
             structure={structure}
             archetype={picked}
             presentation={data.presentation}
+            sourceState={sourceState}
             onPresentationChange={(presentation) => patch({ presentation })}
             rejectedArchetypes={rejected}
             onRejectArchetype={(archetype) => {

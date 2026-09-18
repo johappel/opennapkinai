@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Download, Image as ImageIcon, Lightbulb, LucideProps, Palette, RefreshCw, Settings } from "lucide-react";
+import { ChevronDown, Download, Image as ImageIcon, Lightbulb, LucideProps, Palette, RefreshCw, Settings, Unlink } from "lucide-react";
 import type { ForwardRefExoticComponent, ReactNode, RefAttributes } from "react";
 
 import type { Archetype, SmartArtStructure } from "../smartart/types";
@@ -16,9 +16,12 @@ import { downloadSmartArtAsSvg, downloadSmartArtAsPng } from "../smartart/downlo
 
 type Props = {
     originalText: string;
-    structure: SmartArtStructure | null;
+    /** Chooser result, or null when the model found nothing. */
+    structure: { nodes: SmartArtStructure["nodes"] } | SmartArtStructure | null;
     archetype: Archetype;
     presentation?: Presentation;
+    /** Whether the blocks the text came from still exist. */
+    sourceState?: { kind: "keine" | "vorhanden" | "verwaist"; missing?: string[] };
     onPresentationChange: (presentation: Presentation) => void;
     rejectedArchetypes: Archetype[];
     onRejectArchetype: (archetype: Archetype) => void;
@@ -35,6 +38,7 @@ export default function DiagramResult({
     structure,
     archetype,
     presentation,
+    sourceState,
     onPresentationChange,
     onBackToChooser,
 }: Props) {
@@ -87,6 +91,17 @@ export default function DiagramResult({
             </div>
 
             <div className="space-y-4 p-5">
+                {sourceState?.kind === "verwaist" && (
+                    <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        <Unlink className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>
+                            Die Textstellen, aus denen dieses Diagramm gebaut wurde, gibt es nicht
+                            mehr. Das Diagramm zeigt weiter, was gelesen wurde, aber niemand kann
+                            mehr nachsehen, woraus.
+                        </span>
+                    </p>
+                )}
+
                 {verdict.advisory && (
                     <p className="flex items-start gap-2 text-xs text-amber-700">
                         <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" />

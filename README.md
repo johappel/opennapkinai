@@ -41,7 +41,7 @@ opennapkinai/
 │   ├── types/            gemeinsame Typen
 │   ├── eslint-config/
 │   └── typescript-config/
-├── scripts/              Einmalwerkzeuge, nicht Teil des Builds
+├── scripts/              Prüfläufe und Einmalwerkzeuge, nicht Teil des Builds
 └── package.json          npm workspaces, turbo
 ```
 
@@ -92,6 +92,48 @@ Das Rendern läuft im Browser, ohne Modellaufruf.
 
 Darstellungsparameter wie Farbschema und Skizzenstil sind reine Anzeige. Sie
 ändern nie die Struktur, das ist eine bewusste Trennung.
+
+### Woher die Formauswahl kommt
+
+Das Modell liefert nur die Knoten, nicht die Form. Welche Formen angeboten
+werden, entscheidet `archetypeFit` aus der Knotenmenge, und die Begründung
+wird mitgeliefert statt versteckt. Formen, die nicht passen, stehen mit Grund
+unter der Auswahl.
+
+`process`, `cycle`, `matrix` und `comparison` stellen dieselben Knoten auf
+unterschiedliche Weise dar: einmal als Abfolge, einmal als Schleife, einmal
+ohne Reihenfolge, einmal als zwei gleich grosse Seiten. Die Knotenzahl allein
+unterscheidet sie nicht, die Absicht schon. Deshalb stehen sie nebeneinander
+zur Wahl.
+
+### Wenn die Quellblöcke verschwinden
+
+Ein Diagrammblock hält seinen Text selbst, zusätzlich die EditorJS-Ids der
+Blöcke, aus denen er gebaut wurde (`sourceBlockIds`, siehe
+`apps/frontend/src/tools/`). Die Ids sind eine Herkunftsangabe, keine
+Abhängigkeit: das Diagramm bleibt vollständig lesbar und lässt sich weiter
+umschalten, wenn die Quellblöcke längst gelöscht sind. Nur eine Neuerzeugung
+aus dem Text ist dann nicht mehr möglich.
+
+Blockindizes stehen aus demselben Grund nicht mehr im Weg: sie verschieben
+sich beim Einfügen und zeigen nach dem Löschen ins Leere. Das alte Feld
+`sourceBlockIndex` bleibt in gespeicherten Notizen stehen, wird aber nicht
+mehr gelesen.
+
+## Prüfungen
+
+```bash
+npm run check
+```
+
+Zwei Prüfläufe, beide ohne Browser und ohne Netz:
+
+- `check:fit` prüft für 1 bis 12 Knoten, flach und als Kette, ob jede
+  angebotene Form zeichenbar ist und ob zwei angebotene Formen dieselbe
+  Geometrie liefern. Der zweite Punkt ist der wichtigere: gleiche Geometrie
+  hiesse, eine der beiden ist reine Verzierung.
+- `check:data` prüft, dass der Quelltext eines Diagrammblocks die Quellblöcke
+  überlebt und dass verschobene Blöcke nicht als Verlust gelesen werden.
 
 ## Umgebung
 

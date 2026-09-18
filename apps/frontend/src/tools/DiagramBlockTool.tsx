@@ -3,12 +3,13 @@ import { createRoot, type Root } from "react-dom/client";
 import type { DiagramData } from "./DiagramInlineTool";
 import type { API } from "@editorjs/editorjs";
 import DiagramList from "../components/DiagramList";
+import { checkSourceBlocks, type SourceState } from "./sourceBlocks";
 
 export class DiagramBlockTool {
   private data: DiagramData;
+  private api: API;
   private wrapper: HTMLElement | null = null;
   private reactRoot: Root | null = null;
-  //   private api: API;
 
   /*
   * Disabled Toolbox configuration for the Diagram Block tool
@@ -20,9 +21,9 @@ export class DiagramBlockTool {
   }
   */
 
-  constructor({ data }: { data: DiagramData; api: API }) {
+  constructor({ data, api }: { data: DiagramData; api: API }) {
     this.data = data || ({} as DiagramData);
-    // this.api = api;
+    this.api = api;
   }
 
   render(): HTMLElement {
@@ -36,10 +37,16 @@ export class DiagramBlockTool {
   private renderReactComponent(): void {
     if (!this.wrapper) return;
 
+    // Einmal beim Aufbau geprueft. EditorJS zeichnet den Block neu, wenn sich das
+    // Dokument aendert, deshalb genuegt das. Geprueft wird nur, ob es die
+    // Quellbloecke noch gibt, nicht wo sie stehen.
+    const sourceState: SourceState = checkSourceBlocks(this.api, this.data.sourceBlockIds);
+
     this.reactRoot = createRoot(this.wrapper);
     this.reactRoot.render(
       createElement(DiagramList, {
         data: this.data,
+        sourceState,
         // The React tree owns what it renders but not the block data, so changes
         // are handed back up here. Without this the chosen shape and the theme
         // would be lost the moment the note is saved.

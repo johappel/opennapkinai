@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Lightbulb, Loader2, RefreshCw } from "lucide-react";
+import { Lightbulb, Loader2, RefreshCw, Unlink } from "lucide-react";
 import type { Archetype } from "./types";
 import { archetypeFit, ARCHETYPE_LABELS } from "./archetypeFit";
 import ArchetypeTile, { defaultTilePalette } from "./ArchetypeTile";
@@ -12,6 +12,8 @@ type Props = {
     /** Nodes already persisted with the block, if any. */
     structure: import("./types").SmartArtStructure | null;
     presentation?: Presentation;
+    /** Whether the blocks the text came from still exist. */
+    sourceState?: { kind: "keine" | "vorhanden" | "verwaist"; missing?: string[] };
     onStructure: (structure: import("./types").SmartArtStructure) => void;
     onPick: (archetype: Archetype) => void;
 };
@@ -28,6 +30,7 @@ export default function VariantChooser({
     originalText,
     structure,
     presentation,
+    sourceState,
     onStructure,
     onPick,
 }: Props) {
@@ -100,6 +103,18 @@ export default function VariantChooser({
 
     return (
         <div className="space-y-4">
+            {sourceState?.kind === "verwaist" && (
+                <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <Unlink className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                        Die Textstellen, aus denen dieses Diagramm gebaut wurde, gibt es nicht mehr.
+                        Das Diagramm zeigt weiter, was gelesen wurde, aber niemand kann mehr
+                        nachsehen, woraus. Ein neues Diagramm aus dem jetzigen Text ist der einzige
+                        Weg zurueck.
+                    </span>
+                </p>
+            )}
+
             <div className="flex items-start gap-3">
                 <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                 <p className="text-sm text-slate-600">
